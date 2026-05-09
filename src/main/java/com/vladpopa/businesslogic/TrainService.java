@@ -1,3 +1,9 @@
+package com.vladpopa.businesslogic;
+
+import com.vladpopa.data.Booking;
+import com.vladpopa.data.Train;
+//import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -14,6 +20,7 @@ public class TrainService {
     private RouteRepository routeRepository;
 
     // Requirement (a): Book tickets and prevent overbooking
+    @Transactional
     public String bookTicket(String trainId, String email, int startId, int endId, int seats) {
         Train train = trainRepository.findById(trainId)
                 .orElseThrow(() -> new RuntimeException("Train not found"));
@@ -67,5 +74,10 @@ public class TrainService {
             System.out.println("DELAY NOTIFICATION sent to " + b.getCustomerEmail() +
                     ": Train " + trainId + " is delayed by " + minutes + " minutes.");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<Booking> getBookingsForTrain(String trainId) {
+        return bookingRepository.findByTrainTrainId(trainId);
     }
 }

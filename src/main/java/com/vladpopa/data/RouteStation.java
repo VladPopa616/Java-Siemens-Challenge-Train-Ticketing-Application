@@ -1,3 +1,5 @@
+package com.vladpopa.data;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -5,6 +7,7 @@ import jakarta.persistence.*;
 public class RouteStation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "route_station_id")
     private int id;
 
     @ManyToOne

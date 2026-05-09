@@ -1,9 +1,12 @@
+package com.vladpopa.data;
+
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "trains")
 public class Train {
     @Id
+    @Column(name = "train_id")
     private String trainId;
 
     @ManyToOne

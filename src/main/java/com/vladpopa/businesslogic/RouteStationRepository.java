@@ -1,3 +1,6 @@
+package com.vladpopa.businesslogic;
+
+import com.vladpopa.data.RouteStation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

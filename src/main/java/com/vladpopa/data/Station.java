@@ -1,8 +1,11 @@
+package com.vladpopa.data;
+
 import jakarta.persistence.*;
 @Entity
 public class Station {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "station_id")
     private int id;
 
     @Column(unique = true, nullable = false)

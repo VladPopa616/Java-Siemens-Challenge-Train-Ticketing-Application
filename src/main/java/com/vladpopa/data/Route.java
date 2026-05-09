@@ -1,3 +1,5 @@
+package com.vladpopa.data;
+
 import jakarta.persistence.*;
 import java.util.List;
 
@@ -6,6 +8,7 @@ import java.util.List;
 public class Route {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "route_id")
     private int id;
 
     private String routeName;
