@@ -1,3 +1,5 @@
+import jakarta.persistence.*;
+
 @Entity
 @Table(name = "trains")
 public class Train {
