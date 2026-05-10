@@ -12,6 +12,31 @@ Below is the UI for both the customer and admin panel:
 <img width="992" height="709" alt="image" src="https://github.com/user-attachments/assets/90cf5235-d0ea-4961-a846-cf613fc43868" />
 <img width="985" height="712" alt="image" src="https://github.com/user-attachments/assets/b5c995b3-933f-412e-a0a9-9fe342051136" />
 I did not style them to look nice since I mainly focused on the application's functionalities rather than the aestethical aspect. 
+## Main Functionalities
+  ### Requirements a and b: Booking a train and check for routes/schedules
+  The customer is able to check routes and trains based on their departure and arrival point. They can choose their departure and arrival stations based on a dropdown which lists all the stations ffrom the database. 
+  <img width="489" height="175" alt="image" src="https://github.com/user-attachments/assets/874bc149-2cb2-4097-af2c-39708584f4a9" />
+  Once the customer has selected their departure and arrival stations, they can click the Find Route Button which will tell them their train and route to take. Here are some example outputs for all different cases: 
+  #### Changeover
+  <img width="983" height="62" alt="image" src="https://github.com/user-attachments/assets/f6263b6c-5a89-494c-8c64-2a34f4acce32" />
+  <img width="967" height="405" alt="image" src="https://github.com/user-attachments/assets/3c719902-58cc-4f68-a86c-c92a8b6d18d3" />
+  #### Direct route
+  <img width="616" height="66" alt="image" src="https://github.com/user-attachments/assets/bc337f41-5f8e-40d4-afc9-a91ae5dcda7c" />
+  #### No existent route
+  <img width="976" height="68" alt="image" src="https://github.com/user-attachments/assets/9042acaa-0d3c-45ad-9992-56ec6afb396c" />
+  <img width="382" height="57" alt="image" src="https://github.com/user-attachments/assets/720aca3a-b4da-49cc-9c84-5997a7cc5724" />
+  Once the train(s) and routes have been found, the customer can choose their train from a dropdown and the number of seats to book. To book the train, the Confirm Booking button must be pressed. An error message will be displayed should the customer overbook. Here are the inputs and outputs for the booking
+  <img width="976" height="276" alt="image" src="https://github.com/user-attachments/assets/353ca497-c580-4ae9-97ac-8c3e7be3dce3" />
+  <img width="580" height="53" alt="image" src="https://github.com/user-attachments/assets/88b2a579-d1be-4e50-92e1-b8b75a8e10d1" />
+  Here is the overbooking case. This would happen if the number of seats booked is greater than the available seats: 
+  <img width="774" height="30" alt="image" src="https://github.com/user-attachments/assets/29568d67-96d0-4cc6-bd70-e568938bbb28" />
+
+
+
+
+
+
+
 
 
 
