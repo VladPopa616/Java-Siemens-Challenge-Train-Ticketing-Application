@@ -1,8 +1,6 @@
 package com.vladpopa.businesslogic;
 
-import com.vladpopa.data.Booking;
-import com.vladpopa.data.Station;
-import com.vladpopa.data.Train;
+import com.vladpopa.data.*;
 //import jakarta.transaction.Transactional;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +19,10 @@ public class TrainService {
     private RouteRepository routeRepository;
     @Autowired
     private StationRepository stationRepository;
+    @Autowired
+    private RouteStationRepository routeStationRepository;
+    @Autowired
+    private ScheduleRepository scheduleRepository;
 
     // Requirement (a): Book tickets and prevent overbooking
     @Transactional
@@ -146,4 +148,125 @@ public class TrainService {
         train.setTotalCapacity(newCapacity);
         trainRepository.save(train); // Hibernate updates the existing record
     }
+
+    @Transactional(readOnly = true)
+    public String findPath(int startId, int endId) {
+        List<Integer> startRoutes = routeStationRepository.findRouteIdsByStationId(startId);
+        List<Integer> endRoutes = routeStationRepository.findRouteIdsByStationId(endId);
+
+        // 1. Check for DIRECT SCHEDULING
+        for (Integer rId : startRoutes) {
+            if (endRoutes.contains(rId)) {
+                // Find a schedule for this route
+                Schedule sched = scheduleRepository.findFirstByRouteId(rId);
+                if (sched != null) {
+                    return String.format("DIRECT: Route %s | Train: %s | Departs: %s | Arrives: %s",
+                            sched.getRoute().getRouteName(), sched.getTrain().getTrainId(),
+                            sched.getDepartureTime(), sched.getArrivalTime());
+                }
+            }
+        }
+
+        // 2. Check for CHANGEOVER SCHEDULING
+        for (Integer r1 : startRoutes) {
+            for (Integer r2 : endRoutes) {
+                Integer hubId = findHub(r1, r2);
+                if (hubId != null) {
+                    Schedule s1 = scheduleRepository.findFirstByRouteId(r1);
+                    Schedule s2 = scheduleRepository.findFirstByRouteId(r2);
+
+                    return String.format("CHANGEOVER at Station %d:\n" +
+                                    "1. Take %s (Dep: %s, Arr: %s)\n" +
+                                    "2. Switch to %s (Dep: %s, Arr: %s)",
+                            hubId, s1.getTrain().getTrainId(), s1.getDepartureTime(), s1.getArrivalTime(),
+                            s2.getTrain().getTrainId(), s2.getDepartureTime(), s2.getArrivalTime());
+                }
+            }
+        }
+        return "ERROR: No schedule found between these stations.";
+    }
+
+    @Transactional
+    public void updateSchedule(int routeId, String newDepartureTime) {
+        // 1. Find the schedule associated with this route
+        // (In a more complex system, you might search by schedule_id)
+        Schedule schedule = scheduleRepository.findFirstByRouteId(routeId);
+
+        if (schedule == null) {
+            throw new RuntimeException("No schedule found for Route ID: " + routeId);
+        }
+
+        // 2. Simple validation for HH:mm format
+        if (!newDepartureTime.matches("^([01]?[0-9]|2[0-3]):[0-5][0-9]$")) {
+            throw new RuntimeException("Invalid time format. Please use HH:mm (e.g., 14:30)");
+        }
+
+        // 3. Update the departure time
+        schedule.setDepartureTime(newDepartureTime);
+
+
+        schedule.setArrivalTime(calculateArrivalTime(routeId,newDepartureTime));
+
+        scheduleRepository.save(schedule);
+    }
+
+    /**
+     * Requirement (c): Ability to add a completely new schedule
+     */
+    @Transactional
+    public void createSchedule(String trainId, int routeId, String dep, String arr) {
+        Train train = trainRepository.findById(trainId)
+                .orElseThrow(() -> new RuntimeException("Train not found"));
+        Route route = routeRepository.findById(routeId)
+                .orElseThrow(() -> new RuntimeException("Route not found"));
+
+        Schedule newSchedule = new Schedule();
+        newSchedule.setTrain(train);
+        newSchedule.setRoute(route);
+        newSchedule.setDepartureTime(dep);
+        newSchedule.setArrivalTime(arr);
+
+        scheduleRepository.save(newSchedule);
+    }
+
+    private Integer findHub(int routeId1, int routeId2) {
+        // 1. Get all station IDs that belong to the first route
+        List<Integer> stationsRoute1 = routeStationRepository.findStationIdsByRouteId(routeId1);
+
+        // 2. Get all station IDs that belong to the second route
+        List<Integer> stationsRoute2 = routeStationRepository.findStationIdsByRouteId(routeId2);
+
+        // 3. Find the intersection (the first station that appears in both lists)
+        for (Integer stationId : stationsRoute1) {
+            if (stationsRoute2.contains(stationId)) {
+                return stationId; // We found the transfer point!
+            }
+        }
+
+        return null; // No common station found between these two routes
+    }
+
+    private String calculateArrivalTime(int routeId, String departureTime) {
+        // 1. Count how many stations are in this route
+        List<Integer> stations = routeStationRepository.findStationIdsByRouteId(routeId);
+        int numberOfStops = stations.size() - 1; // Transitions between stations
+
+        if (numberOfStops <= 0) return departureTime;
+
+        // 2. Assume 15 minutes per stop for this simulation
+        int totalTravelMinutes = numberOfStops * 15;
+
+        // 3. Parse the departure time (HH:mm)
+        String[] parts = departureTime.split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+
+        // 4. Add the travel duration
+        int totalMinutes = (hours * 60) + minutes + totalTravelMinutes;
+        int finalHours = (totalMinutes / 60) % 24;
+        int finalMinutes = totalMinutes % 60;
+
+        return String.format("%02d:%02d", finalHours, finalMinutes);
+    }
+
 }

@@ -48,56 +48,112 @@ public class MainGUI extends JFrame {
 
     private JPanel createCustomerPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JPanel inputs = new JPanel(new GridLayout(0, 2, 5, 5));
-        inputs.setBorder(BorderFactory.createTitledBorder("Trip Details"));
+        // --- 1. SELECTION AREA (NORTH) ---
+        JPanel inputGrid = new JPanel(new GridLayout(0, 2, 8, 8));
+        inputGrid.setBorder(BorderFactory.createTitledBorder("Trip Configuration"));
 
-        trainBox = new JComboBox<>();
+        // Dropdowns & Fields
         fromBox = new JComboBox<>();
         toBox = new JComboBox<>();
+        trainBox = new JComboBox<>(); // Specifically for the booking action
         JTextField emailField = new JTextField();
         JSpinner seatSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
 
-        loadDropdownData(); // Initial fill
+        loadDropdownData(); // Fills boxes from the Database
 
-        inputs.add(new JLabel("Select Train:"));
-        inputs.add(trainBox);
-        inputs.add(new JLabel("From Station:"));
-        inputs.add(fromBox);
-        inputs.add(new JLabel("To Station:"));
-        inputs.add(toBox);
-        inputs.add(new JLabel("Email Address:"));
-        inputs.add(emailField);
-        inputs.add(new JLabel("Number of Seats:"));
-        inputs.add(seatSpinner);
+        inputGrid.add(new JLabel("From Station:"));
+        inputGrid.add(fromBox);
+        inputGrid.add(new JLabel("To Station:"));
+        inputGrid.add(toBox);
+        inputGrid.add(new JLabel("Select Train ID:"));
+        inputGrid.add(trainBox);
+        inputGrid.add(new JLabel("Your Email:"));
+        inputGrid.add(emailField);
+        inputGrid.add(new JLabel("Number of Seats:"));
+        inputGrid.add(seatSpinner);
 
+        // --- 2. ACTION BUTTONS ---
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        JButton findRouteBtn = new JButton("Find Route (Check Connection)");
         JButton bookBtn = new JButton("Confirm Booking");
-        bookBtn.setPreferredSize(new Dimension(0, 40));
 
-        bookBtn.addActionListener(e -> {
+        // Style buttons for visual clarity
+        findRouteBtn.setFont(new Font("Arial", Font.BOLD, 12));
+        bookBtn.setFont(new Font("Arial", Font.BOLD, 12));
+        bookBtn.setBackground(new Color(144, 238, 144)); // Light Green
+
+        actionPanel.add(findRouteBtn);
+        actionPanel.add(bookBtn);
+
+        // Combine inputs and buttons in the North area
+        JPanel northContainer = new JPanel(new BorderLayout());
+        northContainer.add(inputGrid, BorderLayout.CENTER);
+        northContainer.add(actionPanel, BorderLayout.SOUTH);
+
+        // --- 3. LOG AREA (CENTER) ---
+        // sharedLogArea is already initialized in the MainGUI constructor
+        JScrollPane logScroll = new JScrollPane(sharedLogArea);
+        logScroll.setBorder(BorderFactory.createTitledBorder("Customer Panel Log / Notifications"));
+
+        // --- 4. BUTTON LISTENERS ---
+
+        // Requirement (b): Finding departure/arrival and changeovers
+        findRouteBtn.addActionListener(e -> {
             try {
-                String tId = (String) trainBox.getSelectedItem();
-                int fId = extractId(fromBox.getSelectedItem().toString());
-                int tIdStat = extractId(toBox.getSelectedItem().toString());
-                String email = emailField.getText().trim();
-                int seats = (int) seatSpinner.getValue();
+                int startId = extractId(fromBox.getSelectedItem().toString());
+                int endId = extractId(toBox.getSelectedItem().toString());
 
-                if (email.isEmpty()) {
-                    sharedLogArea.append("[ERROR] Email is required.\n");
+                if (startId == endId) {
+                    sharedLogArea.append("[INFO] You are already at the destination station.\n");
                     return;
                 }
 
-                String result = trainService.bookTicket(tId, email, tIdStat, fId, seats);
-                sharedLogArea.append("[BOOKING] " + result + " (" + email + ")\n");
+                // Call the pathfinding logic from TrainService
+                String routeResult = trainService.findPath(startId, endId);
+
+                sharedLogArea.append("\n--- ROUTE SEARCH RESULT ---\n");
+                sharedLogArea.append(routeResult + "\n");
+                sharedLogArea.append("----------------------------\n");
                 scrollToBottom();
+
             } catch (Exception ex) {
-                sharedLogArea.append("[ERROR] " + ex.getMessage() + "\n");
+                sharedLogArea.append("[ERROR] Route search failed: " + ex.getMessage() + "\n");
             }
         });
 
-        panel.add(inputs, BorderLayout.NORTH);
-        panel.add(new JScrollPane(sharedLogArea), BorderLayout.CENTER);
-        panel.add(bookBtn, BorderLayout.SOUTH);
+        // Requirement (a): Booking tickets and preventing overbooking
+        bookBtn.addActionListener(e -> {
+            try {
+                String tId = (String) trainBox.getSelectedItem();
+                int startId = extractId(fromBox.getSelectedItem().toString());
+                int endId = extractId(toBox.getSelectedItem().toString());
+                String email = emailField.getText().trim();
+                int seats = (int) seatSpinner.getValue();
+
+                if (email.isEmpty() || !email.contains("@")) {
+                    sharedLogArea.append("[ERROR] Please provide a valid email address.\n");
+                    return;
+                }
+
+                // Call the booking logic (which includes capacity checks)
+                String result = trainService.bookTicket(tId, email, endId, startId, seats);
+
+                // Log the result and simulated email confirmation
+                sharedLogArea.append("[BOOKING] " + result + "\n");
+                sharedLogArea.append("[SYSTEM] Confirmation email sent to " + email + ".\n");
+                scrollToBottom();
+
+            } catch (Exception ex) {
+                sharedLogArea.append("[ERROR] Booking failed: " + ex.getMessage() + "\n");
+            }
+        });
+
+        // --- 5. ASSEMBLE PANEL ---
+        panel.add(northContainer, BorderLayout.NORTH);
+        panel.add(logScroll, BorderLayout.CENTER);
+
         return panel;
     }
 
@@ -123,10 +179,12 @@ public class MainGUI extends JFrame {
         JButton addStationBtn = new JButton("Add New Station");
         JButton deleteTrainBtn = new JButton("Delete Train");
         JButton updateTrainBtn = new JButton("Update Train Capacity");
+        JButton updateSchedBtn = new JButton("Update Schedule Time");
         row2.add(addTrainBtn);
         row2.add(addStationBtn);
         row2.add(deleteTrainBtn);
         row2.add(updateTrainBtn);
+        row2.add(updateSchedBtn);
 
         controlContainer.add(row1);
         controlContainer.add(row2);
@@ -302,6 +360,30 @@ public class MainGUI extends JFrame {
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Update Failed: " + ex.getMessage());
                 }
+            }
+        });
+
+        updateSchedBtn.addActionListener(e -> {
+            String routeIdInput = JOptionPane.showInputDialog(this, "Enter Route ID to modify:");
+            if (routeIdInput == null || routeIdInput.isEmpty()) return;
+
+            String newDep = JOptionPane.showInputDialog(this, "Enter New Departure Time (HH:mm):");
+            if (newDep == null || newDep.isEmpty()) return;
+
+            try {
+                int rId = Integer.parseInt(routeIdInput);
+
+                // Call the service
+                trainService.updateSchedule(rId, newDep);
+
+                // Requirement (d) / Log alert
+                sharedLogArea.append("[ADMIN] SUCCESS: Route " + rId + " schedule updated to " + newDep + "\n");
+                JOptionPane.showMessageDialog(this, "Schedule updated successfully!");
+
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Route ID must be a number.");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
             }
         });
 
