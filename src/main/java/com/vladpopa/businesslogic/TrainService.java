@@ -91,4 +91,59 @@ public class TrainService {
     public List<Station> getAllStations() {
         return stationRepository.findAll();
     }
+
+    @Transactional
+    public void saveTrain(String id, int capacity) {
+        Train train = new Train();
+        train.setTrainId(id);
+        train.setTotalCapacity(capacity);
+        trainRepository.save(train);
+    }
+
+    @Transactional
+    public void deleteTrain(String id) {
+        // Check if the train exists first
+        if (!trainRepository.existsById(id)) {
+            throw new RuntimeException("Train " + id + " does not exist.");
+        }
+
+        // Attempt deletion
+        try {
+            trainRepository.deleteById(id);
+        } catch (Exception e) {
+            // This usually triggers if there are still bookings linked to the train
+            throw new RuntimeException("Cannot delete train. It still has active bookings.");
+        }
+    }
+
+    @Transactional
+    public void saveStation(String name) {
+        Station station = new Station();
+        station.setName(name);
+        stationRepository.save(station);
+    }
+
+    @Transactional
+    public void updateBookingSeats(int bookingId, int newSeats) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Requirement (a): Still validate capacity here before saving!
+        booking.setNumSeats(newSeats);
+        bookingRepository.save(booking);
+    }
+
+    @Transactional
+    public void deleteBooking(int bookingId) {
+        bookingRepository.deleteById(bookingId);
+    }
+
+    @Transactional
+    public void updateTrainCapacity(String trainId, int newCapacity) {
+        Train train = trainRepository.findById(trainId)
+                .orElseThrow(() -> new RuntimeException("Train " + trainId + " not found."));
+
+        train.setTotalCapacity(newCapacity);
+        trainRepository.save(train); // Hibernate updates the existing record
+    }
 }
