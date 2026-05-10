@@ -14,8 +14,7 @@ public class TrainApp {
                 .run(args);
 
         EventQueue.invokeLater(() -> {
-            MainGUI gui = context.getBean(MainGUI.class);
-            gui.init();
+            context.getBean(MainGUI.class);
         });
     }
 }

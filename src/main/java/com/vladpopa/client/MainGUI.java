@@ -12,18 +12,30 @@ import java.util.List;
 
 @org.springframework.stereotype.Component
 public class MainGUI extends JFrame {
+    private final TrainService trainService;
 
-    @Autowired
-    private
-    TrainService trainService;
-    @Autowired
-    private TrainRepository trainRepository;
+    // Shared Log Area for cross-panel alerts
+    private JTextArea sharedLogArea;
+    private JComboBox<String> trainBox, fromBox, toBox;
+    private DefaultTableModel adminTableModel;
 
-    public void init() {
+    public MainGUI(TrainService trainService) {
+        this.trainService = trainService;
+
+        // 1. Setup Frame Properties
         setTitle("Train Ticketing System");
-        setSize(900, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(900, 700);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
 
+        // 2. INITIALIZE SHARED COMPONENTS FIRST
+        // This must happen before createCustomerPanel or createAdminPanel are called
+        sharedLogArea = new JTextArea();
+        sharedLogArea.setEditable(false);
+        sharedLogArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        sharedLogArea.setBackground(new Color(245, 245, 245));
+
+        // 3. Setup Tabs
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Customer: Search & Book", createCustomerPanel());
         tabs.addTab("Admin: Management", createAdminPanel());
@@ -33,119 +45,96 @@ public class MainGUI extends JFrame {
     }
 
     private JPanel createCustomerPanel() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
 
-        // --- TOP: Input Fields ---
-        JPanel inputGrid = new JPanel(new GridLayout(0, 2, 5, 5));
-        inputGrid.setBorder(BorderFactory.createTitledBorder("Booking Details"));
+        // Input Grid
+        JPanel inputs = new JPanel(new GridLayout(0, 2, 5, 5));
+        inputs.setBorder(BorderFactory.createTitledBorder("Trip Details"));
 
-        JComboBox<String> trainBox = new JComboBox<>();
-        JComboBox<String> fromBox = new JComboBox<>();
-        JComboBox<String> toBox = new JComboBox<>();
+        trainBox = new JComboBox<>();
+        fromBox = new JComboBox<>();
+        toBox = new JComboBox<>();
         JTextField emailField = new JTextField();
-        JSpinner seatsSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+        JSpinner seatSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
 
-        // Fill Dropdowns
-        trainService.getAllTrains().forEach(t -> trainBox.addItem(t.getTrainId()));
-        trainService.getAllStations().forEach(s -> {
-            fromBox.addItem(s.getName() + " (ID: " + s.getId() + ")");
-            toBox.addItem(s.getName() + " (ID: " + s.getId() + ")");
-        });
+        // Load data from DB
+        loadDropdownData();
 
-        inputGrid.add(new JLabel("Select Train:"));
-        inputGrid.add(trainBox);
-        inputGrid.add(new JLabel("From Station:"));
-        inputGrid.add(fromBox);
-        inputGrid.add(new JLabel("To Station:"));
-        inputGrid.add(toBox);
-        inputGrid.add(new JLabel("Email Address:"));
-        inputGrid.add(emailField);
-        inputGrid.add(new JLabel("Number of Seats:"));
-        inputGrid.add(seatsSpinner);
+        inputs.add(new JLabel("Select Train:"));
+        inputs.add(trainBox);
+        inputs.add(new JLabel("From:"));
+        inputs.add(fromBox);
+        inputs.add(new JLabel("To:"));
+        inputs.add(toBox);
+        inputs.add(new JLabel("Email:"));
+        inputs.add(emailField);
+        inputs.add(new JLabel("Seats:"));
+        inputs.add(seatSpinner);
 
-        // --- CENTER: Status Log ---
-        JTextArea logArea = new JTextArea(12, 50);
-        logArea.setEditable(false);
-        logArea.setBackground(new Color(245, 245, 245));
-        JScrollPane logScroll = new JScrollPane(logArea);
-        logScroll.setBorder(BorderFactory.createTitledBorder("Transaction Log"));
-
-        // --- BOTTOM: Action Button ---
         JButton bookBtn = new JButton("Confirm Booking");
-        bookBtn.setPreferredSize(new Dimension(0, 40));
+        bookBtn.setFont(new Font("Arial", Font.BOLD, 14));
+
+        // Use the shared area
+        JScrollPane logScroll = new JScrollPane(sharedLogArea);
+        logScroll.setBorder(BorderFactory.createTitledBorder("Booking History & System Alerts"));
 
         bookBtn.addActionListener(e -> {
-            String tId = (String) trainBox.getSelectedItem();
-            // Regex to grab only the ID number from the dropdown string
-            int fId = Integer.parseInt(fromBox.getSelectedItem().toString().replaceAll(".*ID: (\\d+).*", "$1"));
-            int tIdStat = Integer.parseInt(toBox.getSelectedItem().toString().replaceAll(".*ID: (\\d+).*", "$1"));
-            String email = emailField.getText().trim();
-            int seats = (int) seatsSpinner.getValue();
-
-            if(email.isEmpty()) {
-                logArea.append("> ERROR: Email is required.\n");
-                return;
-            }
-
             try {
-                String msg = trainService.bookTicket(tId, email, tIdStat, fId, seats);
-                logArea.append("> SUCCESS: " + msg + " for " + email + "\n");
+                String tId = (String) trainBox.getSelectedItem();
+                int fId = extractId(fromBox.getSelectedItem().toString());
+                int tIdStat = extractId(toBox.getSelectedItem().toString());
+                String email = emailField.getText().trim();
+                int seats = (int) seatSpinner.getValue();
+
+                String result = trainService.bookTicket(tId, email, tIdStat, fId, seats);
+                sharedLogArea.append("[BOOKING] " + result + " for " + email + "\n");
             } catch (Exception ex) {
-                logArea.append("> FAILURE: " + ex.getMessage() + "\n");
+                sharedLogArea.append("[ERROR] Booking failed: " + ex.getMessage() + "\n");
             }
+            scrollToBottom();
         });
 
-        mainPanel.add(inputGrid, BorderLayout.NORTH);
-        mainPanel.add(logScroll, BorderLayout.CENTER);
-        mainPanel.add(bookBtn, BorderLayout.SOUTH);
-
-        return mainPanel;
+        panel.add(inputs, BorderLayout.NORTH);
+        panel.add(logScroll, BorderLayout.CENTER);
+        panel.add(bookBtn, BorderLayout.SOUTH);
+        return panel;
     }
 
     private JPanel createAdminPanel() {
-        JPanel mainPanel = new JPanel(new BorderLayout());
+        JPanel panel = new JPanel(new BorderLayout(5, 5));
 
-        // 1. Top Control Bar
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JTextField trainIdSearch = new JTextField(10);
-        JButton viewBookingsBtn = new JButton("Refresh Bookings List");
+        // 1. TOP: The Control Bar (Re-including the Search Field)
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
+        // RESTORED: The explicit Train ID field used by the listeners below
+        JTextField searchField = new JTextField(10);
+        JButton refreshBtn = new JButton("Refresh Bookings");
         JButton delayBtn = new JButton("Signal Delay");
 
-        topPanel.add(new JLabel("Train ID:"));
-        topPanel.add(trainIdSearch);
-        topPanel.add(viewBookingsBtn);
-        topPanel.add(delayBtn);
+        top.add(new JLabel("Train ID:"));
+        top.add(searchField); // Adding the field back to the UI
+        top.add(refreshBtn);
+        top.add(delayBtn);
 
-        // 2. Table Setup
-        DefaultTableModel tableModel = new DefaultTableModel(
-                new String[]{"ID", "Email", "From", "To", "Seats"}, 0
-        ) {
-            @Override
-            public boolean isCellEditable(int row, int column) { return false; }
-        };
+        // 2. CENTER: The Bookings Table
+        adminTableModel = new DefaultTableModel(new String[]{"ID", "Email", "From", "To", "Seats"}, 0);
+        JTable table = new JTable(adminTableModel);
+        JScrollPane tableScroll = new JScrollPane(table);
+        tableScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        tableScroll.setPreferredSize(new Dimension(850, 300));
 
-        JTable table = new JTable(tableModel);
-        table.setFillsViewportHeight(true);
-
-        // 3. ScrollPane with Forced Constraints
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        // This forces the scrollbar to engage by limiting visible height
-        scrollPane.setPreferredSize(new Dimension(800, 250));
-
-        // 4. Button Logic
-        viewBookingsBtn.addActionListener(e -> {
-            String id = trainIdSearch.getText().trim().toUpperCase();
+        // 3. LISTENERS: Using the restored searchField
+        refreshBtn.addActionListener(e -> {
+            String id = searchField.getText().trim().toUpperCase();
             if (id.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please enter a Train ID.");
                 return;
             }
 
             List<Booking> bookings = trainService.getBookingsForTrain(id);
-            tableModel.setRowCount(0);
-
+            adminTableModel.setRowCount(0);
             for (Booking b : bookings) {
-                tableModel.addRow(new Object[]{
+                adminTableModel.addRow(new Object[]{
                         b.getId(),
                         b.getCustomerEmail(),
                         b.getStartStationId(),
@@ -153,29 +142,56 @@ public class MainGUI extends JFrame {
                         b.getNumSeats()
                 });
             }
-
-            if (bookings.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "No bookings found for " + id);
-            }
         });
 
         delayBtn.addActionListener(e -> {
-            String id = trainIdSearch.getText().trim().toUpperCase();
-            String mins = JOptionPane.showInputDialog("Enter Delay (minutes):");
-            if (id.isEmpty() || mins == null) return;
+            String id = searchField.getText().trim().toUpperCase();
+            if (id.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Enter a Train ID first.");
+                return;
+            }
+
+            String mins = JOptionPane.showInputDialog("Enter Delay Minutes:");
+            if (mins == null) return;
 
             try {
-                trainService.updateDelay(id, Integer.parseInt(mins));
-                JOptionPane.showMessageDialog(this, "Delay of " + mins + "m reported for " + id);
+                int delayMins = Integer.parseInt(mins);
+                trainService.updateDelay(id, delayMins);
+
+                // Shared Alert Message to Customer Tab
+                sharedLogArea.append("\n*******************************************************\n");
+                sharedLogArea.append("ALERT: Train " + id + " delayed by " + mins + " minutes.\n");
+                sharedLogArea.append("Please check your email for schedule updates.\n");
+                sharedLogArea.append("*******************************************************\n");
+                scrollToBottom();
+
+                JOptionPane.showMessageDialog(this, "Alert broadcasted to Customer Log.");
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Please enter a valid number.");
+                JOptionPane.showMessageDialog(this, "Invalid number for minutes.");
             }
         });
 
-        // 5. Final Assembly
-        mainPanel.add(topPanel, BorderLayout.NORTH);
-        mainPanel.add(scrollPane, BorderLayout.CENTER);
+        // 4. ASSEMBLE
+        panel.add(top, BorderLayout.NORTH);
+        panel.add(tableScroll, BorderLayout.CENTER);
 
-        return mainPanel;
+        return panel;
+    }
+
+    private void loadDropdownData() {
+        trainService.getAllTrains().forEach(t -> trainBox.addItem(t.getTrainId()));
+        trainService.getAllStations().forEach(s -> {
+            String item = s.getName() + " (ID: " + s.getId() + ")";
+            fromBox.addItem(item);
+            toBox.addItem(item);
+        });
+    }
+
+    private int extractId(String text) {
+        return Integer.parseInt(text.replaceAll(".*ID: (\\d+).*", "$1"));
+    }
+
+    private void scrollToBottom() {
+        sharedLogArea.setCaretPosition(sharedLogArea.getDocument().getLength());
     }
 }
