@@ -11,11 +11,19 @@ public class Booking {
     private int id;
 
     @ManyToOne
+    @JoinColumn(name = "train_id")
     private Train train;
 
+    @Column(name = "customer_email")
     private String customerEmail;
+
+    @Column(name = "start_station_id")
     private int startStationId;
+
+    @Column(name = "end_station_id")
     private int endStationId;
+
+    @Column(name = "num_seats")
     private int numSeats;
 
     public int getId() {

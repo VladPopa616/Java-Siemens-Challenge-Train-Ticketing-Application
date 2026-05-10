@@ -2,6 +2,7 @@ package com.vladpopa.data;
 
 import jakarta.persistence.*;
 @Entity
+@Table(name = "stations")
 public class Station {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

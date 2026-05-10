@@ -1,6 +1,7 @@
 package com.vladpopa.businesslogic;
 
 import com.vladpopa.data.Booking;
+import com.vladpopa.data.Station;
 import com.vladpopa.data.Train;
 //import jakarta.transaction.Transactional;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,8 @@ public class TrainService {
     private BookingRepository bookingRepository;
     @Autowired
     private RouteRepository routeRepository;
+    @Autowired
+    private StationRepository stationRepository;
 
     // Requirement (a): Book tickets and prevent overbooking
     @Transactional
@@ -25,7 +28,7 @@ public class TrainService {
         Train train = trainRepository.findById(trainId)
                 .orElseThrow(() -> new RuntimeException("Train not found"));
 
-        int currentlyBooked = bookingRepository.findByTrainTrainId(trainId).stream()
+        int currentlyBooked = bookingRepository.findByTrainTrainIdOrderByIdAsc(trainId).stream()
                 .mapToInt(Booking::getNumSeats)
                 .sum();
 
@@ -69,7 +72,7 @@ public class TrainService {
         train.setCurrentDelayMinutes(minutes);
         trainRepository.save(train);
 
-        List<Booking> customers = bookingRepository.findByTrainTrainId(trainId);
+        List<Booking> customers = bookingRepository.findByTrainTrainIdOrderByIdAsc(trainId);
         for (Booking b : customers) {
             System.out.println("DELAY NOTIFICATION sent to " + b.getCustomerEmail() +
                     ": Train " + trainId + " is delayed by " + minutes + " minutes.");
@@ -78,6 +81,14 @@ public class TrainService {
 
     @Transactional(readOnly = true)
     public List<Booking> getBookingsForTrain(String trainId) {
-        return bookingRepository.findByTrainTrainId(trainId);
+        return bookingRepository.findByTrainTrainIdOrderByIdAsc(trainId);
+    }
+
+    public List<Train> getAllTrains() {
+        return trainRepository.findAll();
+    }
+
+    public List<Station> getAllStations() {
+        return stationRepository.findAll();
     }
 }
